@@ -6,10 +6,10 @@ A comprehensive voice-controlled assistance system designed for visually impaire
 
 - **🎤 Voice-Controlled Interface** - Navigate the entire app using voice commands
 - **📝 Voice Form Filling** - Complete forms using natural speech with confirmation
-- **🪧 Signboard Reader** - AI-powered text recognition using OpenAI GPT-4o Vision
+- **🪧 Signboard Reader** - AI-powered text recognition using Groq Vision (Llama 3.2 11B Vision)
 - **📱 QR Navigation** - Scan QR codes for indoor navigation with voice announcements
 - **🎫 Queue Management** - Token system for service queuing
-- **🔊 Text-to-Speech** - High-quality audio announcements using OpenAI TTS API
+- **🔊 Text-to-Speech** - High-quality audio announcements using Groq TTS API (PlayAI)
 
 ## 🛠️ Tech Stack
 
@@ -20,17 +20,17 @@ A comprehensive voice-controlled assistance system designed for visually impaire
 
 ### Backend
 - **Flask** (Python)
-- **OpenAI API** for:
-  - Whisper (Speech-to-Text)
-  - GPT-4o Vision (Image analysis)
-  - TTS (Text-to-Speech)
+- **Groq API** (OpenAI drop-in replacement) for:
+  - Whisper-Large-V3 (Speech-to-Text)
+  - Llama-3.2-11B-Vision (Image analysis)
+  - PlayAI TTS (Text-to-Speech)
 
 ## 🚀 Setup Instructions
 
 ### Prerequisites
 - Node.js 18+ and npm
 - Python 3.8+
-- OpenAI API Key ([Get one here](https://platform.openai.com/api-keys))
+- Groq API Key ([Get one here](https://console.groq.com/keys))
 
 ### 1. Clone the Repository
 ```bash
@@ -55,8 +55,8 @@ cd ..
 # Copy the example file
 cp .env.example .env
 
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY=sk-...
+# Edit .env and add your Groq API key
+# GROQ_API_KEY=gsk-...
 ```
 
 ### 5. Start the Development Servers
@@ -134,7 +134,7 @@ If you see port 5000 errors, it's likely AirPlay Receiver. The backend already u
 - Check browser settings: `chrome://settings/content/microphone`
 
 ### TTS Not Working
-- Ensure OpenAI API key is valid
+- Ensure Groq API key is valid
 - Check backend logs for errors
 - Verify `/api/speak` endpoint is responding
 
@@ -144,17 +144,17 @@ Large chunk size warnings are expected due to React dependencies. For production
 ## 📝 API Endpoints
 
 ### `/api/transcribe` (POST)
-Transcribes audio to text using OpenAI Whisper
+Transcribes audio to text using Groq Whisper (Whisper-Large-V3)
 - **Input**: FormData with audio file
 - **Output**: `{ "text": "transcribed text" }`
 
 ### `/api/analyze_sign` (POST)
-Analyzes images for text using GPT-4o Vision
+Analyzes images for text using Groq Llama 3.2 11B Vision
 - **Input**: `{ "image": "base64_string" }`
 - **Output**: `{ "text": "detected text" }`
 
 ### `/api/speak` (POST)
-Converts text to speech using OpenAI TTS
+Converts text to speech using Groq TTS (PlayAI)
 - **Input**: `{ "text": "message to speak" }`
 - **Output**: Audio file (MP3)
 
@@ -182,7 +182,7 @@ MIT License - Feel free to use this for educational or commercial purposes.
 
 ## 🙏 Acknowledgments
 
-- OpenAI for Whisper, GPT-4o, and TTS APIs
+- Groq for lightning-fast API inference
 - React team for the amazing framework
 - Vite for blazing fast development
 

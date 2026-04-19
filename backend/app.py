@@ -19,15 +19,18 @@ try:
 except ImportError:
     pass
 
-# Get OpenAI API key from environment
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+# Get Groq API key from environment
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
-if not OPENAI_API_KEY:
-    print("WARNING: OPENAI_API_KEY not found in environment variables.")
-    print("Please add your OpenAI API key to the .env file")
+if not GROQ_API_KEY:
+    print("WARNING: GROQ_API_KEY not found in environment variables.")
+    print("Please add your Groq API key to the .env file")
 else:
-    # Initialize OpenAI client
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    # Initialize OpenAI client pointed to Groq
+    client = OpenAI(
+        api_key=GROQ_API_KEY,
+        base_url="https://api.groq.com/openai/v1"
+    )
 
 app = Flask(__name__)
 # Enable CORS for all domains
@@ -45,8 +48,8 @@ def transcribe_endpoint():
     Audio transcription using OpenAI Whisper API
     """
     try:
-        if not OPENAI_API_KEY:
-            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        if not GROQ_API_KEY:
+            return jsonify({'error': 'Groq API key not configured'}), 500
             
         if 'audio' not in request.files:
             return jsonify({'error': 'No audio file provided'}), 400
@@ -66,9 +69,9 @@ def transcribe_endpoint():
         audio_buffer = io.BytesIO(audio_bytes)
         audio_buffer.name = "audio.webm"  # Whisper needs a filename
         
-        # Call OpenAI Whisper API
+        # Call Groq Whisper API
         transcription = client.audio.transcriptions.create(
-            model="whisper-1",
+            model="whisper-large-v3",
             file=audio_buffer,
             response_format="text"
         )
@@ -88,8 +91,8 @@ def analyze_sign_endpoint():
     Image analysis using OpenAI GPT-4o Vision API
     """
     try:
-        if not OPENAI_API_KEY:
-            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        if not GROQ_API_KEY:
+            return jsonify({'error': 'Groq API key not configured'}), 500
             
         data = request.json
         image_data = data.get('image')  # Base64 string
@@ -103,11 +106,11 @@ def analyze_sign_endpoint():
         else:
             encoded = image_data
             
-        print("Analyzing sign with OpenAI GPT-4o Vision...")
+        print("Analyzing sign with Groq Vision...")
         
-        # Call OpenAI Vision API
+        # Call Groq Vision API
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {
                     "role": "user",
@@ -146,8 +149,8 @@ def speak_endpoint():
     Text-to-Speech using OpenAI TTS API
     """
     try:
-        if not OPENAI_API_KEY:
-            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        if not GROQ_API_KEY:
+            return jsonify({'error': 'Groq API key not configured'}), 500
             
         data = request.json
         text = data.get('text', '')
@@ -157,10 +160,10 @@ def speak_endpoint():
 
         print(f"🔊 TTS Request: {text[:50]}...")
         
-        # Call OpenAI TTS API
+        # Call Groq TTS API
         response = client.audio.speech.create(
-            model="tts-1",  # Fast model
-            voice="alloy",  # Natural voice (options: alloy, echo, fable, onyx, nova, shimmer)
+            model="canopylabs/orpheus-v1-english", 
+            voice="alloy", 
             input=text
         )
         
@@ -178,5 +181,5 @@ def speak_endpoint():
 
 if __name__ == '__main__':
     print("Starting Flask Server on Port 5001...")
-    print("Using OpenAI API for audio transcription and vision analysis")
+    print("Using Groq API for audio transcription, vision analysis, and TTS")
     app.run(debug=True, port=5001)
