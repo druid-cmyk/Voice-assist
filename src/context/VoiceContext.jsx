@@ -67,8 +67,14 @@ export const VoiceProvider = ({ children }) => {
             const audioBlob = await response.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
 
-            // Create and play audio
-            const audio = new Audio(audioUrl);
+            // Create and play audio using the persistent primed audio element for mobile support
+            let audio = document.getElementById('system-audio');
+            if (!audio) {
+                audio = new Audio();
+                audio.id = 'system-audio';
+                document.body.appendChild(audio);
+            }
+            audio.src = audioUrl;
             currentAudioRef.current = audio;
 
             audio.onplay = () => {
@@ -242,6 +248,17 @@ export const VoiceProvider = ({ children }) => {
                 await ctx.resume();
             }
             audioContextRef.current = ctx;
+
+            // Unlock mobile browser audio restrictions (iOS/Android Safari/Chrome)
+            // Mobile browsers block async audio play unless an audio element is primed manually during a user click
+            let systemAudio = document.getElementById('system-audio');
+            if (!systemAudio) {
+                systemAudio = new Audio();
+                systemAudio.id = 'system-audio';
+                document.body.appendChild(systemAudio);
+            }
+            // Prime it with an empty/silent promise
+            systemAudio.play().then(() => systemAudio.pause()).catch(() => {});
 
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
