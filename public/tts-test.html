@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Test - Voice Assistant</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d1b4e 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        #log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 30px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+
+        .success {
+            border-left-color: #4ade80;
+            color: #4ade80;
+        }
+
+        .error {
+            border-left-color: #f87171;
+            color: #f87171;
+        }
+
+        .info {
+            border-left-color: #60a5fa;
+            color: #60a5fa;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔊 TTS Test Page</h1>
+
+        <button class="btn" onclick="testBasicTTS()">🎤 Test Basic TTS</button>
+        <button class="btn" onclick="testSignboardAnnouncement()">🪧 Test Signboard Announcement</button>
+        <button class="btn" onclick="testNameConfirmation()">👤 Test Name Confirmation</button>
+        <button class="btn" onclick="testQRNumberAnnouncement()">📱 Test QR Number Announcement</button>
+        <button class="btn" onclick="loadVoices()">🔄 Reload Voices</button>
+        <button class="btn" onclick="clearLog()">🗑️ Clear Log</button>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let voices = [];
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            addLog('Log cleared', 'info');
+        }
+
+        function loadVoices() {
+            voices = window.speechSynthesis.getVoices();
+            addLog(`✅ Loaded ${voices.length} voices`, 'success');
+
+            if (voices.length > 0) {
+                const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+                addLog(`Found ${englishVoices.length} English voices:`, 'info');
+                englishVoices.slice(0, 5).forEach(v => {
+                    addLog(`  - ${v.name} (${v.lang})`, 'info');
+                });
+            } else {
+                addLog('⚠️ No voices loaded yet. Try clicking "Reload Voices" after a moment.', 'error');
+            }
+        }
+
+        function speak(text) {
+            addLog(`🔊 TTS Request: "${text}"`, 'info');
+
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+
+            // Select voice
+            const preferredVoice = voices.find(v =>
+                v.lang.startsWith('en') && (
+                    v.name.includes("Google") ||
+                    v.name.includes("Samantha") ||
+                    v.name.includes("US English") ||
+                    v.name.includes("Microsoft") ||
+                    v.name.includes("Natural")
+                )
+            ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+                addLog(`Using voice: ${preferredVoice.name}`, 'info');
+            } else {
+                addLog('⚠️ No voice selected - using default', 'error');
+            }
+
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            utterance.onstart = () => {
+                addLog('🔊 TTS Started', 'success');
+            };
+
+            utterance.onend = () => {
+                addLog('🔊 TTS Finished', 'success');
+            };
+
+            utterance.onerror = (e) => {
+                addLog(`🔊 TTS Error: ${e.error}`, 'error');
+                addLog(`Error message: ${e.message || 'No additional info'}`, 'error');
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function testBasicTTS() {
+            speak("Voice Assistant Active. This is a test.");
+        }
+
+        function testSignboardAnnouncement() {
+            speak("The sign says: Emergency Exit. Turn left and proceed straight.");
+        }
+
+        function testNameConfirmation() {
+            const name = "John Smith";
+            speak(`You said ${name}. Is this correct? Say Yes or No.`);
+        }
+
+        function testQRNumberAnnouncement() {
+            const qrCode = "QR_03";
+            const message = "Turn left and walk down 8 steps in front of you to reach floor 1 and turn right.";
+            speak(message);
+        }
+
+        // Load voices on page load
+        window.addEventListener('load', () => {
+            addLog('🎯 TTS Test Page Loaded', 'success');
+
+            // Load voices immediately
+            loadVoices();
+
+            // Some browsers need this event
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+
+            // Fallback: try again after delay
+            setTimeout(loadVoices, 500);
+            setTimeout(loadVoices, 1500);
+        });
+    </script>
+</body>
+
+</html>

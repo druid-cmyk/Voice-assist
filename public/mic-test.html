@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Test - Voice Assistant Debug</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .visualizer {
+            width: 100%;
+            height: 100px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .visualizer-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            transition: height 0.1s ease;
+        }
+
+        .log {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 15px 0;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+
+        .log-entry.error {
+            border-left-color: #dc3545;
+            color: #dc3545;
+        }
+
+        .api-test {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎤 Microphone & API Test</h1>
+        <p>This page helps diagnose voice recording issues.</p>
+
+        <div id="permissionStatus" class="status info">
+            Click "Test Microphone" to check permissions
+        </div>
+
+        <div class="visualizer">
+            <div class="visualizer-bar" id="audioBar"></div>
+        </div>
+
+        <button id="testMicBtn" onclick="testMicrophone()">🎤 Test Microphone</button>
+        <button id="recordBtn" onclick="startRecording()" disabled>🔴 Record 3 Seconds</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled style="display:none;">⏹️ Stop Recording</button>
+
+        <div class="api-test">
+            <h3>🔌 API Connection Test</h3>
+            <button onclick="testBackendConnection()">Test Backend Connection</button>
+            <button onclick="testTranscriptionAPI()">Test Transcription API</button>
+            <div id="apiStatus" class="status info" style="margin-top: 15px;">
+                Click buttons above to test
+            </div>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let audioContext = null;
+        let analyser = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let stream = null;
+        let animationId = null;
+
+        function log(message, isError = false) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (isError ? ' error' : '');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        async function testMicrophone() {
+            const statusDiv = document.getElementById('permissionStatus');
+            const recordBtn = document.getElementById('recordBtn');
+
+            try {
+                log('Requesting microphone access...');
+                statusDiv.className = 'status info';
+                statusDiv.textContent = 'Requesting microphone permission...';
+
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                log('✅ Microphone access granted!');
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Microphone access granted! You can now record.';
+                recordBtn.disabled = false;
+
+                // Setup audio context and analyzer
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                source.connect(analyser);
+
+                log('Audio analyzer connected');
+                visualizeAudio();
+
+            } catch (err) {
+                log(`❌ Microphone Error: ${err.message}`, true);
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error: ${err.message}. Please allow microphone access in browser settings.`;
+            }
+        }
+
+        function visualizeAudio() {
+            if (!analyser) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function draw() {
+                animationId = requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
+
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+
+                const bar = document.getElementById('audioBar');
+                const percentage = Math.min(100, (average / 128) * 100);
+                bar.style.height = percentage + '%';
+
+                // Log if speech detected (threshold = 5)
+                if (average > 5 && Math.random() < 0.01) { // Log occasionally
+                    log(`Audio level: ${average.toFixed(1)} (threshold: 5)`);
+                }
+            }
+            draw();
+        }
+
+        async function startRecording() {
+            if (!stream) {
+                alert('Please test microphone first!');
+                return;
+            }
+
+            try {
+                audioChunks = [];
+
+                let mimeType = 'audio/webm';
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    mimeType = 'audio/webm;codecs=opus';
+                } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    mimeType = 'audio/mp4';
+                }
+
+                log(`Starting recording with ${mimeType}`);
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        audioChunks.push(e.data);
+                        log(`Audio chunk: ${e.data.size} bytes`);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: mimeType });
+                    log(`Recording stopped. Total size: ${blob.size} bytes`);
+
+                    if (blob.size > 100) {
+                        await sendToAPI(blob, mimeType);
+                    } else {
+                        log('⚠️ Recording too short!', true);
+                    }
+                };
+
+                mediaRecorder.start();
+                log('🔴 Recording started (3 seconds)...');
+
+                document.getElementById('recordBtn').disabled = true;
+                document.getElementById('stopBtn').style.display = 'inline-block';
+
+                // Auto-stop after 3 seconds
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        stopRecording();
+                    }
+                }, 3000);
+
+            } catch (err) {
+                log(`Recording Error: ${err.message}`, true);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                log('⏹️ Stopping recording...');
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+            }
+        }
+
+        async function sendToAPI(blob, mimeType) {
+            try {
+                log('📤 Sending to /api/transcribe...');
+
+                const formData = new FormData();
+                const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+                formData.append('audio', blob, `test.${ext}`);
+
+                const response = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                log(`Response status: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ API Error: ${errorText}`, true);
+                    return;
+                }
+
+                const data = await response.json();
+                log(`✅ Success! Transcription: "${data.text}"`);
+
+                const statusDiv = document.getElementById('apiStatus');
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `<strong>✅ Transcription Success!</strong><br>Result: "${data.text}"`;
+
+            } catch (err) {
+                log(`❌ Network Error: ${err.message}`, true);
+            }
+        }
+
+        async function testBackendConnection() {
+            const statusDiv = document.getElementById('apiStatus');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Testing backend connection...';
+
+            try {
+                log('Testing backend via Vite proxy...');
+                const response = await fetch('/api/transcribe', {
+                    method: 'POST'
+                });
+
+                log(`Backend response: ${response.status}`);
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ Backend is running! Status: ${response.status}`;
+            } catch (err) {
+                log(`❌ Backend connection failed: ${err.message}`, true);
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Backend connection failed. Is Flask running on port 5000?`;
+            }
+        }
+
+        async function testTranscriptionAPI() {
+            const statusDiv = document.getElementById('apiStatus');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Please record audio first using the Record button above';
+
+            if (!audioChunks || audioChunks.length === 0) {
+                alert('Please record audio first!');
+                return;
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+    </script>
+</body>
+
+</html>
