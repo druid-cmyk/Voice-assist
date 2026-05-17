@@ -108,7 +108,7 @@ def analyze_sign_endpoint():
         
         # Call Groq Vision API
         response = client.chat.completions.create(
-            model="llama-3.2-90b-vision-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {
                     "role": "user",
@@ -156,7 +156,7 @@ def speak_endpoint():
         if not text:
             return jsonify({'error': 'No text provided'}), 400
 
-        print(f"🔊 TTS Request: {text[:50]}...")
+        print(f"TTS Request: {text[:50]}...")
         
         # Groq does not natively support TTS out of the box via this endpoint.
         # We return a 501 to cleanly trigger the frontend fallback to browser TTS.
